@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <!--js-->
+    <link href="/static/images/favicon.ico" rel="shortcut icon">
+    <script type="text/javascript" src="/static/js/jquery-2.1.3.min.js"></script>
+    <script type="text/javascript" src="/static/js/echarts.js"></script>
+    <script type="text/javascript" language="JavaScript"></script>
+    <title>游玩选</title>
+</head>
+<body>
+    <div style="color: red">
+        <div class="searchbox">
+            <div class="l">
+                <div class="m">
+                    <input type="text" id="city" name="city" class="searchkey" value="" placeholder="输入搜索内容">
+                    <input type="submit" class="searchbut" id="searchbut" value="搜索" onclick="loadChart()"/>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="main" style="width: 800px;height:600px;"></div>
+</body>
+<script type="text/javascript">
+    // <!--&lt;!&ndash;搜索框的js-->
+        function searchTextOnfocus(obj) {
+            if (obj.value != '')
+                obj.value = '';
+            obj.style.color = '#333';
+        }
+    //    鼠标失去焦点时使用
+        function searchTextOnBlur(obj) {
+            if (obj.value == '') {
+                obj.value = "请输入想去游玩的城市...";
+                obj.style.color = '#98BC00';
+            }else {
+                obj.style.color = '#333'
+            }
+        }
+        //  敲击事件
+        $('#city').on('keypress',function (event) {
+            if (event.keyCode == 13){
+                $('#searchbut').trigger('click')
+            }
+        });
+
+    var myChart = echarts.init(document.getElementById('main'));
+    myChart.setOption({
+        // 配置鼠标的悬停信息
+        tooltip: {
+            trigger: 'axis'
+        },
+        legend: {
+            show: true,
+            data: ['评论数', '游记数']
+        },
+
+        // toolbox: {
+        //     show: true,
+        //     feature: {
+        //         dataView: {show:true, readOnly:false},
+        //         magicType: {show: true, type: ['line', 'bar']},
+        //         restore : {show: true},
+        //         saveAsImage : {show: true},
+        //         // readOnly: true,
+        //     }
+        // },
+        // calculable : true,
+        xAxis: [
+            {
+                type: 'category',
+                name: '景点',
+                axisLabel: {
+                    interval: 0,  //横坐标上文字每间隔几个显示内容 0表示每一个都显示
+                    rotate: 20,
+                    formatter: function (name) {
+                        return (name.length > 18 ? (name.slice(0, 8) + "...") : name);
+                    },
+                },
+                data: []
+            }
+        ],
+        yAxis: [
+            {
+                name:'评论数',
+                type: 'value',
+                // axisLabel: {
+                //     formatter: '(value)'
+                // }
+            }
+        ],
+        series: [
+            {
+                name: '评论数',
+                type: 'bar',
+                data: [],
+                markPoint: {
+                    data: [
+                        {type: 'max', name: '最大值'},
+                        {type: 'min', name: '最小值'}
+                    ]
+                },
+                markLine: {
+                    data: [
+                        {type: 'average', name: '平均值'}
+                    ]
+                }
+            },
+            {
+                name: '游记数',
+                type: 'bar',
+                data: [],
+                markPoint: { // 标记点
+                    data: [
+                        {type: 'max', name: '最大值'},
+                        {type: 'min', name: '最小值'}
+                    ]
+                },
+                markLine: {
+                    data: [
+                        {type: 'average', name: '平均值'}
+                    ]
+                }
+            }
+        ]
+    });
+
+        // 加载图形的方法
+        function loadChart() {
+        //   获取搜索框中的城市
+            city = $("#city").val();
+        //  表设置标题
+            myChart.setOption({
+            title: {
+                text: city
+            },
+            toolbox: {
+            show : true,
+            feature : {
+                dataView : {show: true, readOnly: false},
+                magicType : {show: true, type: ['line', 'bar']},
+                restore : {show: true},
+                saveAsImage : {show: true}
+            }
+        },
+        });
+        myChart.showLoading();
+        // 数据加载完之前先显示一段简单的loading动画
+        // 发送ajax异步请求,获取数据
+
+        $.ajax({
+            type: "get",
+            async: true,    //异步请求
+            url: "/echarts/" + city,
+            dataType: "json",
+            timeout: 60000, // 超时时间,单位毫秒
+            success: function (results) {
+                // 请求成功时 执行内容 result 为服务器返回的json 对象
+                var names = []; //名称数组
+                var comments_nums = [];
+                var travel_notes_nums = [];
+                if (results) {
+                    // console.log(results);
+                    for (var i = 0; i < results.length; i++) {
+                        names.push(results[i]["name"]);
+                        comments_nums.push(results[i]["comments_num"]);
+                        travel_notes_nums.push(results[i]["travel_notes_num"]);
+                    }
+                    myChart.hideLoading(); // 隐藏加载动画
+                    myChart.setOption({     // 加载数据图表
+                        xAxis: {
+                            // 设置x轴上的数据
+                            data: names,
+                        },
+                        series: [{
+                            //  设置评论数,数据
+                            data: comments_nums
+                        }, {
+                            data: travel_notes_nums
+                        }],
+                        // 设置工具栏
+                        toolbox: {
+                            feature: {
+                                // 配置数据视图
+                                dataView: {
+                                    optionToContent: function (opt) {
+                                        return getTable(results)
+                                    }
+                                },
+                            }
+                        }
+                    });
+                }
+            }
+        })
+    }
+
+
+</script>
+</html>
